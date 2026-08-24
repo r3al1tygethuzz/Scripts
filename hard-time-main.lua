@@ -7,7 +7,7 @@ local LocalPlayer = Players.LocalPlayer
 
 --// URLs
 local KEYS_URL = "https://raw.githubusercontent.com/r3al1tygethuzz/hard-time/main/keys.lua"
-local MAIN_URL = "https://pastebin.com/raw/bu1x0pXv"
+local MAIN_URL = "https://pastebin.com/raw/rUeSAvYg"
 
 --// Prevent duplicate GUIs
 pcall(function()
