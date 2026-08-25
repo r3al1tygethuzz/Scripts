@@ -13,13 +13,17 @@ local clientId = RbxAnalyticsService:GetClientId() -- Used as HWID
 
 --// Function to send log to Discord
 local function sendLog(message)
+    print("[KeySystem Log] Attempting to send: " .. message)  -- Debug print
     local data = {
         content = message
     }
     local jsonData = HttpService:JSONEncode(data)
-    pcall(function()
+    local success, err = pcall(function()
         HttpService:PostAsync(webhookUrl, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
+    if not success then
+        warn("[KeySystem] Failed to send log to Discord: " .. tostring(err))
+    end
 end
 
 --// URLs
