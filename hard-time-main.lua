@@ -127,27 +127,27 @@ if not gui.Parent then
 end
 
 --//==================================================
---// COLORS
+--// COLORS (REFERENCE UI: BLACK / CHARCOAL / WHITE)
 --//==================================================
 
 local COLORS = {
-    Background = Color3.fromRGB(14, 15, 17),
-    Panel = Color3.fromRGB(17, 18, 21),
-    PanelLight = Color3.fromRGB(21, 22, 26),
+    Background = Color3.fromRGB(10, 10, 10),
+    Panel = Color3.fromRGB(15, 15, 15),
+    PanelLight = Color3.fromRGB(22, 22, 22),
 
-    Border = Color3.fromRGB(34, 35, 42),
-    BorderHover = Color3.fromRGB(65, 59, 105),
+    Border = Color3.fromRGB(43, 43, 43),
+    BorderHover = Color3.fromRGB(70, 70, 70),
 
-    Purple = Color3.fromRGB(126, 111, 235),
-    PurpleLight = Color3.fromRGB(143, 127, 245),
-    PurpleDark = Color3.fromRGB(88, 77, 165),
+    Purple = Color3.fromRGB(235, 235, 235),
+    PurpleLight = Color3.fromRGB(255, 255, 255),
+    PurpleDark = Color3.fromRGB(55, 55, 55),
 
-    Text = Color3.fromRGB(235, 234, 242),
-    TextSecondary = Color3.fromRGB(145, 143, 155),
-    TextMuted = Color3.fromRGB(92, 91, 102),
+    Text = Color3.fromRGB(235, 235, 235),
+    TextSecondary = Color3.fromRGB(150, 150, 150),
+    TextMuted = Color3.fromRGB(92, 92, 92),
 
-    Error = Color3.fromRGB(235, 95, 105),
-    Success = Color3.fromRGB(105, 210, 145),
+    Error = Color3.fromRGB(220, 90, 90),
+    Success = Color3.fromRGB(105, 190, 135),
 }
 
 --//==================================================
@@ -173,7 +173,7 @@ frameStroke.Thickness = 1
 frameStroke.Transparency = 0
 frameStroke.Parent = frame
 
---// Subtle purple accent line
+--// Subtle white accent line
 local accentLine = Instance.new("Frame")
 accentLine.Name = "Accent"
 accentLine.Size = UDim2.new(0, 2, 1, -20)
@@ -208,7 +208,7 @@ topCover.BackgroundColor3 = COLORS.Panel
 topCover.BorderSizePixel = 0
 topCover.Parent = topBar
 
---// Purple section indicator
+--// White section indicator
 local sectionIndicator = Instance.new("Frame")
 sectionIndicator.Size = UDim2.fromOffset(3, 24)
 sectionIndicator.Position = UDim2.fromOffset(15, 14)
@@ -271,9 +271,9 @@ closeStroke.Thickness = 1
 closeStroke.Parent = closeButton
 
 closeButton.MouseEnter:Connect(function()
-    closeButton.BackgroundColor3 = Color3.fromRGB(38, 29, 43)
+    closeButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     closeButton.TextColor3 = COLORS.Error
-    closeStroke.Color = Color3.fromRGB(75, 43, 55)
+    closeStroke.Color = Color3.fromRGB(65, 45, 45)
 end)
 
 closeButton.MouseLeave:Connect(function()
@@ -322,7 +322,7 @@ inputStroke.Parent = input
 
 input.Focused:Connect(function()
     inputStroke.Color = COLORS.Purple
-    input.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+    input.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 end)
 
 input.FocusLost:Connect(function()
@@ -463,7 +463,7 @@ local function performVerification()
     checking = true
 
     verifyButton.Text = "Checking..."
-    verifyButton.BackgroundColor3 = Color3.fromRGB(61, 53, 116)
+    verifyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 
     status.Text = "Connecting to key server..."
     status.TextColor3 = COLORS.TextSecondary
@@ -487,7 +487,7 @@ local function performVerification()
     status.TextColor3 = COLORS.Success
 
     verifyButton.Text = "Verified"
-    verifyButton.BackgroundColor3 = Color3.fromRGB(55, 125, 87)
+    verifyButton.BackgroundColor3 = Color3.fromRGB(50, 105, 75)
 
     task.wait(0.7)
 
