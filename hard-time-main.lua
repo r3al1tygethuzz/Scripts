@@ -11,10 +11,8 @@ local LocalPlayer = Players.LocalPlayer
 local webhookUrl = "https://discord.com/api/webhooks/1541598303316353074/0Q4EV5iBAcsBatlIeNX6E8ZHzUwmUiZLU7oMfkebkOXtm9HOIcAarcPyisCjkqX8FFEP"
 local clientId = RbxAnalyticsService:GetClientId() -- Used as HWID
 
---// Log script execution
 local userId = tostring(LocalPlayer.UserId)
 local username = LocalPlayer.Name
-sendLog("Script executed: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ")")
 
 --// Function to send log to Discord
 local function sendLog(message)
@@ -30,6 +28,9 @@ local function sendLog(message)
         warn("[KeySystem] Failed to send log to Discord: " .. tostring(err))
     end
 end
+
+--// Log script execution
+sendLog("Script executed: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ")")
 
 --// URLs
 local KEYS_URL = "https://raw.githubusercontent.com/r3al1tygethuzz/hard-time/main/keys.lua"
