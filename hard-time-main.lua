@@ -2,8 +2,25 @@
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
 local LocalPlayer = Players.LocalPlayer
+
+--// Webhook for logging
+local webhookUrl = "https://discord.com/api/webhooks/1541598303316353074/0Q4EV5iBAcsBatlIeNX6E8ZHzUwmUiZLU7oMfkebkOXtm9HOIcAarcPyisCjkqX8FFEP"
+local clientId = RbxAnalyticsService:GetClientId() -- Used as HWID
+
+--// Function to send log to Discord
+local function sendLog(message)
+    local data = {
+        content = message
+    }
+    local jsonData = HttpService:JSONEncode(data)
+    pcall(function()
+        HttpService:PostAsync(webhookUrl, jsonData, Enum.HttpContentType.ApplicationJson)
+    end)
+end
 
 --// URLs
 local KEYS_URL = "https://raw.githubusercontent.com/r3al1tygethuzz/hard-time/main/keys.lua"
@@ -84,14 +101,17 @@ local function verifyKey(inputKey)
     end
 
     if not account then
+        sendLog("Attempt: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ") - No key registered.")
         return false, "No key is registered to this account."
     end
 
     if type(account) ~= "table" then
+        sendLog("Attempt: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ") - Invalid key database entry.")
         return false, "Invalid key database entry."
     end
 
     if tostring(account.key) ~= inputKey then
+        sendLog("Attempt: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ") - Invalid key.")
         return false, "Invalid key."
     end
 
@@ -102,10 +122,12 @@ local function verifyKey(inputKey)
         local currentTime = os.time()
 
         if currentTime >= expires then
+            sendLog("Attempt: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ") - Key expired.")
             return false, "This key has expired."
         end
     end
 
+    sendLog("Success: User " .. username .. " (ID: " .. userId .. ", HWID: " .. clientId .. ") - Key verified.")
     return true, "Key verified successfully!"
 end
 
