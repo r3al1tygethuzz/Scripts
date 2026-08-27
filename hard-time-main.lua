@@ -1,5 +1,5 @@
 --//==================================================
---// HARDWARE ID KEY SYSTEM
+--// KEY SYSTEM
 --//==================================================
 
 local Players = game:GetService("Players")
@@ -10,7 +10,60 @@ local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local LocalPlayer = Players.LocalPlayer
 
 --//==================================================
---// CONFIGURATION
+--// WEBHOOK FOR LOGGING
+--//==================================================
+
+local webhookUrl = "YOUR_WEBHOOK_URL_HERE"
+
+local clientId = RbxAnalyticsService:GetClientId() -- Used as HWID
+local userId = tostring(LocalPlayer.UserId)
+local username = LocalPlayer.Name
+
+--//==================================================
+--// FUNCTION TO SEND LOG TO DISCORD
+--//==================================================
+
+local function sendLog(message)
+    print("[KeySystem Log] Attempting to send: " .. message)
+
+    local data = {
+        content = message
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+
+    local success, err = pcall(function()
+        HttpService:PostAsync(
+            webhookUrl,
+            jsonData,
+            Enum.HttpContentType.ApplicationJson
+        )
+    end)
+
+    if not success then
+        warn(
+            "[KeySystem] Failed to send log to Discord: "
+                .. tostring(err)
+        )
+    end
+end
+
+--//==================================================
+--// LOG SCRIPT EXECUTION
+--//==================================================
+
+sendLog(
+    "Script executed: User "
+        .. username
+        .. " (ID: "
+        .. userId
+        .. ", HWID: "
+        .. clientId
+        .. ")"
+)
+
+--//==================================================
+--// URLs
 --//==================================================
 
 local KEYS_URL =
@@ -19,99 +72,17 @@ local KEYS_URL =
 local MAIN_URL =
     "https://pastebin.com/raw/rUeSAvYg"
 
--- Replace with your own logging webhook.
-local WEBHOOK_URL =
-    "YOUR_WEBHOOK_URL_HERE"
-
 --//==================================================
---// HARDWARE ID
---//==================================================
-
-local function getHardwareId()
-    local success, result = pcall(function()
-        return RbxAnalyticsService:GetClientId()
-    end)
-
-    if not success then
-        warn("[KeySystem] Failed to obtain Hardware ID:", result)
-        return nil
-    end
-
-    if not result or tostring(result) == "" then
-        warn("[KeySystem] Hardware ID was empty.")
-        return nil
-    end
-
-    return tostring(result)
-end
-
-local hardwareId = getHardwareId()
-
-if not hardwareId then
-    warn("[KeySystem] Cannot continue without a Hardware ID.")
-    return
-end
-
-local username = LocalPlayer.Name
-local displayName = LocalPlayer.DisplayName
-
---//==================================================
---// LOGGING
---//==================================================
-
-local function sendLog(message)
-    if not WEBHOOK_URL or WEBHOOK_URL == "" then
-        return
-    end
-
-    if WEBHOOK_URL == "YOUR_WEBHOOK_URL_HERE" then
-        return
-    end
-
-    local success, err = pcall(function()
-
-        local data = {
-            content = message
-        }
-
-        local jsonData = HttpService:JSONEncode(data)
-
-        HttpService:PostAsync(
-            WEBHOOK_URL,
-            jsonData,
-            Enum.HttpContentType.ApplicationJson
-        )
-    end)
-
-    if not success then
-        warn("[KeySystem] Failed to send log:", err)
-    end
-end
-
---//==================================================
---// EXECUTION LOG
---//==================================================
-
-sendLog(
-    "Script executed\n" ..
-    "Username: " .. tostring(username) .. "\n" ..
-    "Display Name: " .. tostring(displayName) .. "\n" ..
-    "HWID: " .. tostring(hardwareId)
-)
-
---//==================================================
---// PREVENT DUPLICATE GUI
+--// PREVENT DUPLICATE GUIs
 --//==================================================
 
 pcall(function()
-
-    local coreGui = game:GetService("CoreGui")
-    local oldGui = coreGui:FindFirstChild("KeySystem")
+    local oldGui =
+        game:GetService("CoreGui"):FindFirstChild("KeySystem")
 
     if oldGui then
         oldGui:Destroy()
     end
-
 end)
 
 --//==================================================
@@ -125,7 +96,7 @@ local function loadKeys()
         local source = game:HttpGet(KEYS_URL)
 
         if not source or source == "" then
-            error("GitHub returned an empty keys.lua file.")
+            error("GitHub returned an empty file.")
         end
 
         local loaded = loadstring(source)
@@ -142,7 +113,7 @@ local function loadKeys()
 
         warn(
             "[KeySystem] Failed to load keys.lua:",
-            tostring(result)
+            result
         )
 
         return nil, tostring(result)
@@ -154,11 +125,11 @@ local function loadKeys()
             "[KeySystem] keys.lua did not return a table."
         )
 
-        return nil, "keys.lua did not return a table."
+        return nil,
+            "keys.lua did not return a table."
     end
 
     return result
-
 end
 
 --//==================================================
@@ -169,7 +140,6 @@ local function verifyKey(inputKey)
 
     inputKey = tostring(inputKey or "")
 
-    -- Remove whitespace from beginning/end.
     inputKey = inputKey:gsub("^%s+", "")
     inputKey = inputKey:gsub("%s+$", "")
 
@@ -177,88 +147,82 @@ local function verifyKey(inputKey)
         return false, "Please enter a key."
     end
 
-    -- Load database.
     local keys, errorMessage = loadKeys()
 
     if not keys then
         return false, "Could not load key server."
     end
 
-    --==================================================
-    -- IMPORTANT:
-    -- ONLY THE HARDWARE ID IS USED FOR LOOKUP.
-    -- NO ROBLOX USER ID.
-    -- NO ROBLOX USERNAME.
-    --==================================================
+    -- Check User ID first
+    local account = keys[userId]
 
-    local account = keys[hardwareId]
+    -- Then check username
+    if not account then
+        account = keys[username]
+    end
 
     if not account then
 
         sendLog(
-            "Key attempt failed\n" ..
-            "Username: " .. tostring(username) .. "\n" ..
-            "HWID: " .. tostring(hardwareId) .. "\n" ..
-            "Reason: No key registered to HWID"
+            "Attempt: User "
+                .. username
+                .. " (ID: "
+                .. userId
+                .. ", HWID: "
+                .. clientId
+                .. ") - No key registered."
         )
 
         return false,
-            "No key is registered to this Hardware ID."
+            "No key is registered to this account."
     end
 
-    --==================================================
-    -- VALIDATE DATABASE ENTRY
-    --==================================================
+    --//==================================================
+    --// VALIDATE DATABASE ENTRY
+    --//==================================================
 
     if type(account) ~= "table" then
 
         sendLog(
-            "Key database error\n" ..
-            "HWID: " .. tostring(hardwareId) .. "\n" ..
-            "Reason: Invalid database entry"
+            "Attempt: User "
+                .. username
+                .. " (ID: "
+                .. userId
+                .. ", HWID: "
+                .. clientId
+                .. ") - Invalid key database entry."
         )
 
         return false,
             "Invalid key database entry."
     end
 
-    --==================================================
-    -- KEY CHECK
-    --==================================================
+    --//==================================================
+    --// KEY CHECK
+    --//==================================================
 
-    local storedKey = tostring(account.key or "")
-
-    if storedKey == "" then
+    if tostring(account.key) ~= inputKey then
 
         sendLog(
-            "Key database error\n" ..
-            "HWID: " .. tostring(hardwareId) .. "\n" ..
-            "Reason: Missing key"
-        )
-
-        return false,
-            "This Hardware ID has no key assigned."
-    end
-
-    if storedKey ~= inputKey then
-
-        sendLog(
-            "Key attempt failed\n" ..
-            "Username: " .. tostring(username) .. "\n" ..
-            "HWID: " .. tostring(hardwareId) .. "\n" ..
-            "Reason: Invalid key"
+            "Attempt: User "
+                .. username
+                .. " (ID: "
+                .. userId
+                .. ", HWID: "
+                .. clientId
+                .. ") - Invalid key."
         )
 
         return false, "Invalid key."
     end
 
-    --==================================================
-    -- EXPIRATION
-    --==================================================
+    --//==================================================
+    --// EXPIRATION
+    --//==================================================
 
-    local expires = tonumber(account.expires) or 0
+    local expires =
+        tonumber(account.expires) or 0
 
-    -- expires == 0 means never expires.
     if expires ~= 0 then
 
         local currentTime = os.time()
@@ -266,10 +230,13 @@ local function verifyKey(inputKey)
         if currentTime >= expires then
 
             sendLog(
-                "Key attempt failed\n" ..
-                "Username: " .. tostring(username) .. "\n" ..
-                "HWID: " .. tostring(hardwareId) .. "\n" ..
-                "Reason: Key expired"
+                "Attempt: User "
+                    .. username
+                    .. " (ID: "
+                    .. userId
+                    .. ", HWID: "
+                    .. clientId
+                    .. ") - Key expired."
             )
 
             return false,
@@ -277,18 +244,22 @@ local function verifyKey(inputKey)
         end
     end
 
-    --==================================================
-    -- SUCCESS
-    --==================================================
+    --//==================================================
+    --// SUCCESS
+    --//==================================================
 
     sendLog(
-        "Key verified successfully\n" ..
-        "Username: " .. tostring(username) .. "\n" ..
-        "HWID: " .. tostring(hardwareId)
+        "Success: User "
+            .. username
+            .. " (ID: "
+            .. userId
+            .. ", HWID: "
+            .. clientId
+            .. ") - Key verified."
     )
 
-    return true, "Key verified successfully!"
-
+    return true,
+        "Key verified successfully!"
 end
 
 --//==================================================
@@ -306,7 +277,8 @@ pcall(function()
 end)
 
 if not gui.Parent then
-    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    gui.Parent =
+        LocalPlayer:WaitForChild("PlayerGui")
 end
 
 --//==================================================
@@ -340,7 +312,6 @@ local COLORS = {
     Error = Color3.fromRGB(220, 90, 90),
 
     Success = Color3.fromRGB(105, 190, 135),
-
 }
 
 --//==================================================
@@ -361,7 +332,9 @@ frame.Parent = gui
 
 local frameCorner = Instance.new("UICorner")
 
-frameCorner.CornerRadius = UDim.new(0, 7)
+frameCorner.CornerRadius =
+    UDim.new(0, 7)
+
 frameCorner.Parent = frame
 
 local frameStroke = Instance.new("UIStroke")
@@ -373,24 +346,34 @@ frameStroke.Transparency = 0
 frameStroke.Parent = frame
 
 --//==================================================
---// ACCENT
+--// ACCENT LINE
 --//==================================================
 
 local accentLine = Instance.new("Frame")
 
 accentLine.Name = "Accent"
-accentLine.Size = UDim2.new(0, 2, 1, -20)
-accentLine.Position = UDim2.fromOffset(0, 10)
 
-accentLine.BackgroundColor3 = COLORS.Purple
+accentLine.Size =
+    UDim2.new(0, 2, 1, -20)
+
+accentLine.Position =
+    UDim2.fromOffset(0, 10)
+
+accentLine.BackgroundColor3 =
+    COLORS.Purple
+
 accentLine.BorderSizePixel = 0
 
 accentLine.Parent = frame
 
-local accentCorner = Instance.new("UICorner")
+local accentCorner =
+    Instance.new("UICorner")
 
-accentCorner.CornerRadius = UDim.new(1, 0)
-accentCorner.Parent = accentLine
+accentCorner.CornerRadius =
+    UDim.new(1, 0)
+
+accentCorner.Parent =
+    accentLine
 
 --//==================================================
 --// TOP BAR
@@ -399,126 +382,190 @@ accentCorner.Parent = accentLine
 local topBar = Instance.new("Frame")
 
 topBar.Name = "TopBar"
-topBar.Size = UDim2.new(1, 0, 0, 52)
+topBar.Size =
+    UDim2.new(1, 0, 0, 52)
 
-topBar.BackgroundColor3 = COLORS.Panel
+topBar.BackgroundColor3 =
+    COLORS.Panel
+
 topBar.BorderSizePixel = 0
 
 topBar.Parent = frame
 
-local topCorner = Instance.new("UICorner")
+local topCorner =
+    Instance.new("UICorner")
 
-topCorner.CornerRadius = UDim.new(0, 7)
-topCorner.Parent = topBar
+topCorner.CornerRadius =
+    UDim.new(0, 7)
 
-local topCover = Instance.new("Frame")
+topCorner.Parent =
+    topBar
 
-topCover.Size = UDim2.new(1, 0, 0, 10)
-topCover.Position = UDim2.new(0, 0, 1, -10)
+local topCover =
+    Instance.new("Frame")
 
-topCover.BackgroundColor3 = COLORS.Panel
+topCover.Size =
+    UDim2.new(1, 0, 0, 10)
+
+topCover.Position =
+    UDim2.new(0, 0, 1, -10)
+
+topCover.BackgroundColor3 =
+    COLORS.Panel
+
 topCover.BorderSizePixel = 0
 
-topCover.Parent = topBar
+topCover.Parent =
+    topBar
 
 --//==================================================
 --// SECTION INDICATOR
 --//==================================================
 
-local sectionIndicator = Instance.new("Frame")
+local sectionIndicator =
+    Instance.new("Frame")
 
-sectionIndicator.Size = UDim2.fromOffset(3, 24)
-sectionIndicator.Position = UDim2.fromOffset(15, 14)
+sectionIndicator.Size =
+    UDim2.fromOffset(3, 24)
 
-sectionIndicator.BackgroundColor3 = COLORS.Purple
+sectionIndicator.Position =
+    UDim2.fromOffset(15, 14)
+
+sectionIndicator.BackgroundColor3 =
+    COLORS.Purple
+
 sectionIndicator.BorderSizePixel = 0
 
-sectionIndicator.Parent = topBar
+sectionIndicator.Parent =
+    topBar
 
-local sectionCorner = Instance.new("UICorner")
+local sectionCorner =
+    Instance.new("UICorner")
 
-sectionCorner.CornerRadius = UDim.new(1, 0)
-sectionCorner.Parent = sectionIndicator
+sectionCorner.CornerRadius =
+    UDim.new(1, 0)
+
+sectionCorner.Parent =
+    sectionIndicator
 
 --//==================================================
 --// TITLE
 --//==================================================
 
-local title = Instance.new("TextLabel")
+local title =
+    Instance.new("TextLabel")
 
 title.BackgroundTransparency = 1
 
-title.Position = UDim2.fromOffset(28, 7)
-title.Size = UDim2.new(1, -80, 0, 22)
+title.Position =
+    UDim2.fromOffset(28, 7)
 
-title.Font = Enum.Font.GothamMedium
-title.Text = "Hardware ID Verification"
+title.Size =
+    UDim2.new(1, -80, 0, 22)
 
-title.TextColor3 = COLORS.Text
+title.Font =
+    Enum.Font.GothamMedium
+
+title.Text =
+    "Key Verification"
+
+title.TextColor3 =
+    COLORS.Text
+
 title.TextSize = 15
 
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextXAlignment =
+    Enum.TextXAlignment.Left
 
-title.Parent = topBar
+title.Parent =
+    topBar
 
 --//==================================================
 --// SUBTITLE
 --//==================================================
 
-local subtitle = Instance.new("TextLabel")
+local subtitle =
+    Instance.new("TextLabel")
 
 subtitle.BackgroundTransparency = 1
 
-subtitle.Position = UDim2.fromOffset(28, 28)
-subtitle.Size = UDim2.new(1, -80, 0, 17)
+subtitle.Position =
+    UDim2.fromOffset(28, 28)
 
-subtitle.Font = Enum.Font.Gotham
+subtitle.Size =
+    UDim2.new(1, -80, 0, 17)
 
-subtitle.Text = "Enter your access key to continue"
+subtitle.Font =
+    Enum.Font.Gotham
 
-subtitle.TextColor3 = COLORS.TextMuted
+subtitle.Text =
+    "Enter your access key to continue"
+
+subtitle.TextColor3 =
+    COLORS.TextMuted
+
 subtitle.TextSize = 10
 
-subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.TextXAlignment =
+    Enum.TextXAlignment.Left
 
-subtitle.Parent = topBar
+subtitle.Parent =
+    topBar
 
 --//==================================================
 --// CLOSE BUTTON
 --//==================================================
 
-local closeButton = Instance.new("TextButton")
+local closeButton =
+    Instance.new("TextButton")
 
 closeButton.Name = "Close"
 
-closeButton.Size = UDim2.fromOffset(27, 27)
-closeButton.Position = UDim2.new(1, -36, 0, 13)
+closeButton.Size =
+    UDim2.fromOffset(27, 27)
 
-closeButton.BackgroundColor3 = COLORS.PanelLight
+closeButton.Position =
+    UDim2.new(1, -36, 0, 13)
+
+closeButton.BackgroundColor3 =
+    COLORS.PanelLight
+
 closeButton.BorderSizePixel = 0
 
 closeButton.Text = "×"
 
-closeButton.Font = Enum.Font.Gotham
+closeButton.Font =
+    Enum.Font.Gotham
+
 closeButton.TextSize = 18
 
-closeButton.TextColor3 = COLORS.TextSecondary
+closeButton.TextColor3 =
+    COLORS.TextSecondary
 
 closeButton.AutoButtonColor = false
 
-closeButton.Parent = topBar
+closeButton.Parent =
+    topBar
 
-local closeCorner = Instance.new("UICorner")
+local closeCorner =
+    Instance.new("UICorner")
 
-closeCorner.CornerRadius = UDim.new(0, 5)
-closeCorner.Parent = closeButton
+closeCorner.CornerRadius =
+    UDim.new(0, 5)
 
-local closeStroke = Instance.new("UIStroke")
+closeCorner.Parent =
+    closeButton
 
-closeStroke.Color = COLORS.Border
+local closeStroke =
+    Instance.new("UIStroke")
+
+closeStroke.Color =
+    COLORS.Border
+
 closeStroke.Thickness = 1
 
-closeStroke.Parent = closeButton
+closeStroke.Parent =
+    closeButton
 
 closeButton.MouseEnter:Connect(function()
 
@@ -556,53 +603,82 @@ end)
 --// KEY INPUT
 --//==================================================
 
-local input = Instance.new("TextBox")
+local input =
+    Instance.new("TextBox")
 
 input.Name = "KeyInput"
 
-input.Size = UDim2.new(1, -36, 0, 43)
-input.Position = UDim2.fromOffset(18, 72)
+input.Size =
+    UDim2.new(1, -36, 0, 43)
 
-input.BackgroundColor3 = COLORS.Panel
+input.Position =
+    UDim2.fromOffset(18, 72)
+
+input.BackgroundColor3 =
+    COLORS.Panel
+
 input.BorderSizePixel = 0
 
 input.ClearTextOnFocus = false
 
-input.PlaceholderText = "Enter your key..."
-input.PlaceholderColor3 = COLORS.TextMuted
+input.PlaceholderText =
+    "Enter your key..."
+
+input.PlaceholderColor3 =
+    COLORS.TextMuted
 
 input.Text = ""
-input.TextColor3 = COLORS.Text
 
-input.Font = Enum.Font.Gotham
+input.TextColor3 =
+    COLORS.Text
+
+input.Font =
+    Enum.Font.Gotham
+
 input.TextSize = 12
 
-input.TextXAlignment = Enum.TextXAlignment.Left
+input.TextXAlignment =
+    Enum.TextXAlignment.Left
 
-input.Parent = frame
+input.Parent =
+    frame
 
-local inputPadding = Instance.new("UIPadding")
+local inputPadding =
+    Instance.new("UIPadding")
 
-inputPadding.PaddingLeft = UDim.new(0, 13)
-inputPadding.PaddingRight = UDim.new(0, 13)
+inputPadding.PaddingLeft =
+    UDim.new(0, 13)
 
-inputPadding.Parent = input
+inputPadding.PaddingRight =
+    UDim.new(0, 13)
 
-local inputCorner = Instance.new("UICorner")
+inputPadding.Parent =
+    input
 
-inputCorner.CornerRadius = UDim.new(0, 5)
-inputCorner.Parent = input
+local inputCorner =
+    Instance.new("UICorner")
 
-local inputStroke = Instance.new("UIStroke")
+inputCorner.CornerRadius =
+    UDim.new(0, 5)
 
-inputStroke.Color = COLORS.Border
+inputCorner.Parent =
+    input
+
+local inputStroke =
+    Instance.new("UIStroke")
+
+inputStroke.Color =
+    COLORS.Border
+
 inputStroke.Thickness = 1
 
-inputStroke.Parent = input
+inputStroke.Parent =
+    input
 
 input.Focused:Connect(function()
 
-    inputStroke.Color = COLORS.Purple
+    inputStroke.Color =
+        COLORS.Purple
 
     input.BackgroundColor3 =
         Color3.fromRGB(20, 20, 20)
@@ -611,7 +687,8 @@ end)
 
 input.FocusLost:Connect(function()
 
-    inputStroke.Color = COLORS.Border
+    inputStroke.Color =
+        COLORS.Border
 
     input.BackgroundColor3 =
         COLORS.Panel
@@ -622,41 +699,59 @@ end)
 --// VERIFY BUTTON
 --//==================================================
 
-local verifyButton = Instance.new("TextButton")
+local verifyButton =
+    Instance.new("TextButton")
 
 verifyButton.Name = "Verify"
 
-verifyButton.Size = UDim2.new(1, -36, 0, 40)
-verifyButton.Position = UDim2.fromOffset(18, 124)
+verifyButton.Size =
+    UDim2.new(1, -36, 0, 40)
+
+verifyButton.Position =
+    UDim2.fromOffset(18, 124)
 
 verifyButton.BackgroundColor3 =
     COLORS.PurpleDark
 
 verifyButton.BorderSizePixel = 0
 
-verifyButton.Text = "Verify Key"
+verifyButton.Text =
+    "Verify Key"
 
-verifyButton.TextColor3 = COLORS.Text
+verifyButton.TextColor3 =
+    COLORS.Text
 
-verifyButton.Font = Enum.Font.GothamMedium
+verifyButton.Font =
+    Enum.Font.GothamMedium
+
 verifyButton.TextSize = 12
 
 verifyButton.AutoButtonColor = false
 
-verifyButton.Parent = frame
+verifyButton.Parent =
+    frame
 
-local verifyCorner = Instance.new("UICorner")
+local verifyCorner =
+    Instance.new("UICorner")
 
-verifyCorner.CornerRadius = UDim.new(0, 5)
-verifyCorner.Parent = verifyButton
+verifyCorner.CornerRadius =
+    UDim.new(0, 5)
 
-local verifyStroke = Instance.new("UIStroke")
+verifyCorner.Parent =
+    verifyButton
 
-verifyStroke.Color = COLORS.Purple
+local verifyStroke =
+    Instance.new("UIStroke")
+
+verifyStroke.Color =
+    COLORS.Purple
+
 verifyStroke.Thickness = 1
+
 verifyStroke.Transparency = 0.45
 
-verifyStroke.Parent = verifyButton
+verifyStroke.Parent =
+    verifyButton
 
 verifyButton.MouseEnter:Connect(function()
 
@@ -680,41 +775,56 @@ end)
 --// STATUS
 --//==================================================
 
-local status = Instance.new("TextLabel")
+local status =
+    Instance.new("TextLabel")
 
 status.Name = "Status"
 
 status.BackgroundTransparency = 1
 
-status.Position = UDim2.fromOffset(18, 174)
-status.Size = UDim2.new(1, -36, 0, 20)
+status.Position =
+    UDim2.fromOffset(18, 174)
 
-status.Font = Enum.Font.Gotham
+status.Size =
+    UDim2.new(1, -36, 0, 20)
 
-status.Text = "Waiting for key..."
+status.Font =
+    Enum.Font.Gotham
 
-status.TextColor3 = COLORS.TextMuted
+status.Text =
+    "Waiting for key..."
+
+status.TextColor3 =
+    COLORS.TextMuted
+
 status.TextSize = 10
 
-status.TextXAlignment = Enum.TextXAlignment.Center
+status.TextXAlignment =
+    Enum.TextXAlignment.Center
 
-status.Parent = frame
+status.Parent =
+    frame
 
 --//==================================================
 --// USER INFORMATION
 --//==================================================
 
-local userLabel = Instance.new("TextLabel")
+local userLabel =
+    Instance.new("TextLabel")
 
 userLabel.BackgroundTransparency = 1
 
-userLabel.Position = UDim2.fromOffset(18, 204)
-userLabel.Size = UDim2.new(1, -36, 0, 18)
+userLabel.Position =
+    UDim2.fromOffset(18, 204)
 
-userLabel.Font = Enum.Font.Gotham
+userLabel.Size =
+    UDim2.new(1, -36, 0, 18)
+
+userLabel.Font =
+    Enum.Font.Gotham
 
 userLabel.Text =
-    "User: " .. tostring(LocalPlayer.Name)
+    "User: " .. LocalPlayer.Name
 
 userLabel.TextColor3 =
     Color3.fromRGB(76, 75, 84)
@@ -724,7 +834,8 @@ userLabel.TextSize = 9
 userLabel.TextXAlignment =
     Enum.TextXAlignment.Center
 
-userLabel.Parent = frame
+userLabel.Parent =
+    frame
 
 --//==================================================
 --// DRAGGING
@@ -739,18 +850,13 @@ local function updateDrag(inputObject)
     local delta =
         inputObject.Position - dragStart
 
-    frame.Position = UDim2.new(
-
-        startPosition.X.Scale,
-
-        startPosition.X.Offset + delta.X,
-
-        startPosition.Y.Scale,
-
-        startPosition.Y.Offset + delta.Y
-
-    )
-
+    frame.Position =
+        UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
 end
 
 topBar.InputBegan:Connect(function(inputObject)
@@ -801,7 +907,7 @@ UserInputService.InputChanged:Connect(function(inputObject)
 end)
 
 --//==================================================
---// VERIFICATION
+--// VERIFY
 --//==================================================
 
 local checking = false
@@ -814,7 +920,8 @@ local function performVerification()
 
     checking = true
 
-    verifyButton.Text = "Checking..."
+    verifyButton.Text =
+        "Checking..."
 
     verifyButton.BackgroundColor3 =
         Color3.fromRGB(45, 45, 45)
@@ -847,12 +954,12 @@ local function performVerification()
         return
     end
 
-    --==================================================
-    -- SUCCESS
-    --==================================================
+    --//==================================================
+    --// SUCCESS
+    --//==================================================
 
     status.Text =
-        "✓ Hardware ID verified!"
+        "✓ Key verified!"
 
     status.TextColor3 =
         COLORS.Success
@@ -867,37 +974,38 @@ local function performVerification()
 
     gui:Destroy()
 
-    --==================================================
-    -- LOAD MAIN SCRIPT
-    --==================================================
+    --//==================================================
+    --// LOAD MAIN SCRIPT ONLY AFTER VERIFICATION
+    --//==================================================
 
-    local success, result = pcall(function()
+    local success, result =
+        pcall(function()
 
-        local source =
-            game:HttpGet(MAIN_URL)
+            local source =
+                game:HttpGet(MAIN_URL)
 
-        if not source or source == "" then
+            if not source or source == "" then
 
-            error(
-                "Main script returned an empty response."
-            )
+                error(
+                    "Main script returned an empty response."
+                )
 
-        end
+            end
 
-        local mainFunction =
-            loadstring(source)
+            local mainFunction =
+                loadstring(source)
 
-        if not mainFunction then
+            if not mainFunction then
 
-            error(
-                "Could not compile main script."
-            )
+                error(
+                    "Could not compile main script."
+                )
 
-        end
+            end
 
-        return mainFunction()
+            return mainFunction()
 
-    end)
+        end)
 
     if not success then
 
@@ -911,7 +1019,7 @@ local function performVerification()
 end
 
 --//==================================================
---// BUTTON
+--// VERIFY BUTTON
 --//==================================================
 
 verifyButton.MouseButton1Click:Connect(
