@@ -13,7 +13,7 @@ local LocalPlayer = Players.LocalPlayer
 --// WEBHOOK FOR LOGGING
 --//==================================================
 
-local webhookUrl = "YOUR_WEBHOOK_URL_HERE"
+local webhookUrl = "https://discord.com/api/webhooks/1542668082231902409/7yLhMRwWHRq3-6laQ9b8p4xPmQBO8bQUCoD3oKH8HYzHR7XmcdUh6gUkJs8nZTp132Dj"
 
 local clientId = RbxAnalyticsService:GetClientId() -- Used as HWID
 local userId = tostring(LocalPlayer.UserId)
